@@ -2,6 +2,9 @@ from cryptography.fernet import Fernet
 import time
 import os
 import logging
+from aiofiles import open as aopen
+import asyncio
+from pathlib import Path
 
 class Encryptor(Fernet):
     def __init__(self, key=None, debug=False):
@@ -48,50 +51,54 @@ class Encryptor(Fernet):
         self.logger.info('Key retrieved.')
         return key
     
-    def encrypt_file(self, file_name):
+    async def encrypt_file(self, file_name):
         self.logger.info(f'Encrypting {file_name}...')
 
-        with open(file_name, 'rb') as f:
-            data = f.read()
+        async with aopen(file_name, 'rb') as f:
+            data = await f.read()
 
-        with open(file_name, 'wb') as f:
-            f.write(self.encrypt(data))
+        async with aopen(file_name, 'wb') as f:
+            await f.write(self.encrypt(data))
         
         self.logger.info(f'{file_name} encrypted.')
         return True
     
-    def decrypt_file(self, file_name):
+    async def decrypt_file(self, file_name):
         self.logger.info(f'Decrypting {file_name}...')
 
-        with open(file_name, 'rb') as f:
-            data = f.read()
+        async with aopen(file_name, 'rb') as f:
+            data = await f.read()
 
-        with open(file_name, 'wb') as f:
-            f.write(self.decrypt(data))
+        async with aopen(file_name, 'wb') as f:
+            await f.write(self.decrypt(data))
         
         self.logger.info(f'{file_name} decrypted.')
         return True
     
-    def encrypt_dir(self, dir_name):
+    async def encrypt_dir(self, dir_name):
         self.logger.info(f'Encrypting {dir_name}...')
 
-        for root, dirs, files in os.walk(dir_name):
-            for file in files:
-                self.encrypt_file(os.path.join(root, file))
-            for dir in dirs:
-                self.encrypt_dir(os.path.join(root, dir))
+        path = Path(dir_name)
+
+        for item in path.iterdir():
+            if item.is_file():
+                await self.encrypt_file(str(item))
+            elif item.is_dir():
+                await self.encrypt_dir(str(item))
 
         self.logger.info(f'{dir_name} encrypted.')
         return True
 
-    def decrypt_dir(self, dir_name):
+    async def decrypt_dir(self, dir_name):
         self.logger.info(f'Decrypting {dir_name}...')
 
-        for root, dirs, files in os.walk(dir_name):
-            for file in files:
-                self.decrypt_file(os.path.join(root, file))
-            for dir in dirs:
-                self.decrypt_dir(os.path.join(root, dir))
+        path = Path(dir_name)
+
+        for item in path.iterdir():
+            if item.is_file():
+                await self.decrypt_file(str(item))
+            elif item.is_dir():
+                await self.decrypt_dir(str(item))
 
         self.logger.info(f'{dir_name} decrypted.')
         return True
@@ -99,21 +106,16 @@ class Encryptor(Fernet):
 if __name__ == '__main__':
     encryptor = Encryptor()
 
-    print('Encrypting...')
-    t1 = time.time()
-    encryptor.encrypt_dir('data')
-    t2 = time.time()
-    print('Encryption time:', t2 - t1)
+    # print('Encrypting...')
+    # t1 = time.time()
+    # asyncio.run(encryptor.encrypt_dir('data'))
+    # t2 = time.time()
+    # print('Encryption time:', t2 - t1)
 
     print('Decrypting...')
     t1 = time.time()
-    encryptor.decrypt_dir('data')
+    asyncio.run(encryptor.decrypt_dir('data'))
     t2 = time.time()
     print('Decryption time:', t2 - t1)
 
     print('Done!')
-
-    
-'''
-async
-'''
