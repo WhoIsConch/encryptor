@@ -1,3 +1,4 @@
 log.log
 key.key
 data/
+__pycache__/
